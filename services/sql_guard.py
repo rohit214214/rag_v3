@@ -60,6 +60,7 @@ class SqlGuard:
 
     def apply_limit(self, sql: str, max_rows: int | None = None) -> str:
         row_cap = max_rows or settings.app_max_rows
+        sql = sql.rstrip().rstrip(";")  # strip trailing semicolon before appending LIMIT
         lower_sql = sql.lower()
         has_limit = re.search(r"\blimit\s+\d+\b", lower_sql)
         if not has_limit:
