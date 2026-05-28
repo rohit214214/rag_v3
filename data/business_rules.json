@@ -1,0 +1,42 @@
+{
+  "default_sales_table": "ads.ads_ckg_sales_di",
+  "default_stock_table": "ads.ads_ckg_stock_di",
+  "table_columns": {
+    "ads.ads_ckg_sales_di": {
+      "country": "country",
+      "date": "sales_dt",
+      "sales_amount": "total_net_price_sgd",
+      "quantity": "sales_qty"
+    },
+    "ads.ads_ckg_stock_di": {
+      "country": "country",
+      "date": "soh_dt",
+      "stock_quantity": "soh",
+      "article": "article"
+    }
+  },
+  "glossary": {
+    "sales": "total_net_price_sgd",
+    "revenue": "total_net_price_sgd",
+    "sold quantity": "sales_qty",
+    "quantity": "sales_qty",
+    "country": "country",
+    "date": "sales_dt",
+    "stock": "soh",
+    "inventory": "soh",
+    "stock quantity": "soh",
+    "article": "article"
+  },
+  "rules": [
+    "All sales and revenue questions MUST query ads.ads_ckg_sales_di only.",
+    "Do NOT use ads.reporting_ckg_sales_df or any other sales table.",
+    "On ads.ads_ckg_sales_di use column country, sales_dt for dates, sales_qty for quantity.",
+    "All stock and inventory questions MUST query ads.ads_ckg_stock_di only.",
+    "On ads.ads_ckg_stock_di use column country, stock_dt for dates, stock_qty for quantity, sku_code for SKU.",
+    "Dimension text values (country, brand, etc.) are stored in UPPERCASE in the database.",
+    "For sold quantity / units use SUM(sales_qty).",
+    "For stock / inventory quantity use SUM(stock_qty).",
+    "Use sales_dt = 'YYYY-MM-DD' for a single day filter.",
+    "Use stock_dt = 'YYYY-MM-DD' for a single day stock filter."
+  ]
+}
