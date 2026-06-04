@@ -27,8 +27,17 @@ def _nl_summary(question: str, row_count: int) -> str:
     return f"Returned {row_count} rows for: {question}"
 
 
+def _init_session_state() -> None:
+    """Initialize session state flags used to track run/stop lifecycle."""
+    if "running" not in st.session_state:
+        st.session_state.running = False
+    if "stop_requested" not in st.session_state:
+        st.session_state.stop_requested = False
+
+
 def main() -> None:
     st.set_page_config(page_title="Hologres RAG SQL Assistant", layout="wide")
+    _init_session_state()
     st.title("Hologres RAG SQL Assistant")
     st.caption("Qwen3.5-flash primary, V model fallback, SELECT-only safe execution")
 
@@ -50,8 +59,31 @@ def main() -> None:
         height=100,
     )
 
-    if st.button("Run", type="primary", use_container_width=True):
+    btn_col1, btn_col2, _ = st.columns([1, 1, 4])
+    run_clicked = btn_col1.button(
+        "▶ Run",
+        type="primary",
+        disabled=st.session_state.running,
+        use_container_width=True,
+    )
+    stop_clicked = btn_col2.button(
+        "⏹ Stop",
+        type="secondary",
+        disabled=not st.session_state.running,
+        use_container_width=True,
+    )
+
+    if stop_clicked:
+        st.session_state.stop_requested = True
+        st.session_state.running = False
+        st.warning("Query stopped. Modify your question and click Run again.")
+        st.stop()
+
+    if run_clicked:
+        st.session_state.running = True
+        st.session_state.stop_requested = False
         if not question.strip():
+            st.session_state.running = False
             st.warning("Please enter a question.")
             st.stop()
 
@@ -69,12 +101,15 @@ def main() -> None:
                 df = db_client.run_select(final_sql, max_rows=settings.app_max_rows)
 
             except HologresConfigError as cfg_error:
+                st.session_state.running = False
                 st.error(f"Database configuration: {cfg_error}")
                 st.stop()
             except SqlGuardError as guard_error:
+                st.session_state.running = False
                 st.error(f"SQL blocked by guardrails: {guard_error}")
                 st.stop()
             except LlmApiError as llm_error:
+                st.session_state.running = False
                 st.error(f"LLM (DashScope) error:\n\n{llm_error}")
                 with st.expander("LLM configuration (check cf.env)"):
                     st.code(
@@ -85,9 +120,11 @@ def main() -> None:
                     )
                 st.stop()
             except Exception as exc:
+                st.session_state.running = False
                 st.error(f"Query failed: {exc}")
                 st.stop()
 
+        st.session_state.running = False
         st.success("Query completed.")
         st.write(_nl_summary(question, len(df)))
 
