@@ -117,9 +117,11 @@ class MetadataRetriever:
                 return True
         return False
 
-    def get_context(self, question: str, max_tables: int = 12) -> MetadataContext:
+    def get_context(self, question: str, max_tables: int = 12, ignore_whitelist: bool = False) -> MetadataContext:
         rules = self._load_rules()
-        whitelist = settings.whitelist_tables
+        # ignore_whitelist=True is used for schema discovery questions so all
+        # tables are visible, not just the SQL query whitelist.
+        whitelist = [] if ignore_whitelist else settings.whitelist_tables
         if whitelist:
             rules = {
                 **rules,

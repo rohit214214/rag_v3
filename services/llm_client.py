@@ -25,6 +25,17 @@ Context:
 """
 
 
+SCHEMA_PROMPT_TEMPLATE = """You are a data catalog assistant for a Hologres data warehouse.
+The user is asking about what tables or columns are available — they are NOT asking for data.
+Based ONLY on the schema context below, answer their question in clear plain English.
+List the relevant table names and column names that match what they are looking for.
+Do NOT generate any SQL. Do NOT make up tables or columns not in the context.
+
+Context:
+{context}
+"""
+
+
 class LlmApiError(RuntimeError):
     """Raised when DashScope / compatible OpenAI API returns an error."""
 
@@ -52,6 +63,17 @@ class LlmResult:
     used_fallback: bool
     raw_response: dict[str, Any]
     # Token counts from the API response "usage" field
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+
+
+@dataclass
+class SchemaAnswer:
+    """Returned when the user asks a schema/discovery question instead of a data question."""
+    answer: str
+    model_used: str
+    latency_ms: int
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
@@ -218,6 +240,24 @@ class LlmClient:
             latency_ms=fallback_latency,
             used_fallback=True,
             raw_response=fallback_body,
+            prompt_tokens=pt,
+            completion_tokens=ct,
+            total_tokens=tt,
+        )
+
+    def answer_schema_question(self, context_text: str) -> SchemaAnswer:
+        """Called when the user asks a schema/discovery question (not a data query).
+        Uses a different prompt that instructs the LLM to reply in plain English,
+        not SQL."""
+        prompt = SCHEMA_PROMPT_TEMPLATE.format(context=context_text)
+        answer_text, body, latency = self._call_model(
+            settings.qwen_endpoint, settings.qwen_api_key, settings.qwen_model, prompt
+        )
+        pt, ct, tt = _extract_token_usage(body)
+        return SchemaAnswer(
+            answer=answer_text,
+            model_used=settings.qwen_model,
+            latency_ms=latency,
             prompt_tokens=pt,
             completion_tokens=ct,
             total_tokens=tt,
