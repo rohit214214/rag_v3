@@ -30,19 +30,28 @@ def _nl_summary(question: str, row_count: int) -> str:
 # Keywords that indicate the user is asking about the schema/catalog,
 # not requesting actual data. Used by _is_schema_question().
 _SCHEMA_INTENT_KEYWORDS = [
-    "are there any tables", "what tables", "which tables",
-    "what columns", "which columns", "do we have a table",
-    "is there a table", "any info about", "any information about",
+    # plural and singular variants — must cover both
+    "are there any tables", "are there any table",
+    "is there any table", "is there a table",
+    "what tables", "which tables",
+    "what columns", "which columns",
+    "do we have a table", "do we have any table",
+    "any info about", "any information about",
     "where can i find", "tell me about tables", "show me tables",
     "list tables", "list columns", "what data do we have",
-    "do we have any", "is there any table", "any table for",
+    "any table for", "any table which", "any table that",
+    "which table", "which table has", "which table contains",
+    "what table", "what table has", "what table contains",
+    "contains customer", "contains nationality",
+    "table which contains", "table that contains",
+    "show me all tables", "show all tables",
 ]
 
 
 def _is_schema_question(question: str) -> bool:
     """Returns True if the question is asking about schema/table discovery
     rather than requesting actual data. Prevents the LLM from generating SQL
-    for questions like 'are there any tables with customer nationality'."""
+    for questions like 'are there any table which contains customer information'."""
     lower = question.lower()
     return any(kw in lower for kw in _SCHEMA_INTENT_KEYWORDS)
 
@@ -58,6 +67,40 @@ def _init_session_state() -> None:
 def main() -> None:
     st.set_page_config(page_title="Hologres RAG SQL Assistant", layout="wide")
     _init_session_state()
+
+    st.markdown("""
+    <style>
+    /* Hide ONLY the deploy button — multiple selectors for version compatibility.
+       #MainMenu (page settings / hamburger) and footer are intentionally NOT hidden. */
+    [data-testid="stDeployButton"],
+    button[title="Deploy this app"],
+    button[title*="Deploy"],
+    .stDeployButton {
+        display: none !important;
+    }
+
+    /* Green Run button */
+    div[data-testid="column"]:nth-child(1) > div > div > div > button {
+        background-color: #28a745 !important;
+        border-color: #28a745 !important;
+        color: white !important;
+    }
+    div[data-testid="column"]:nth-child(1) > div > div > div > button:hover {
+        background-color: #218838 !important;
+        border-color: #1e7e34 !important;
+    }
+    /* Red Stop button */
+    div[data-testid="column"]:nth-child(2) > div > div > div > button {
+        background-color: #dc3545 !important;
+        border-color: #dc3545 !important;
+        color: white !important;
+    }
+    div[data-testid="column"]:nth-child(2) > div > div > div > button:hover {
+        background-color: #c82333 !important;
+        border-color: #bd2130 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     # Compute previous month dynamically for placeholder and examples
     _today = datetime.today()
@@ -116,7 +159,6 @@ def main() -> None:
     stop_clicked = btn_col2.button(
         "⏹ Stop",
         type="secondary",
-        disabled=not st.session_state.running,
         use_container_width=True,
     )
 
@@ -137,13 +179,17 @@ def main() -> None:
         db_client, metadata, llm_client, sql_guard = _init_clients()
 
         # ── Intent detection ─────────────────────────────────────────────
-        # If the user is asking about tables/columns (schema discovery),
-        # answer in plain English. Otherwise generate and run SQL as usual.
+        # Schema discovery: show matched tables/columns directly from the
+        # catalog — no LLM call needed. Faster, zero tokens, and the catalog
+        # result IS the answer (no risk of the LLM omitting tables).
+        # Data questions go through the normal SQL → execute flow.
         # ─────────────────────────────────────────────────────────────────
         if _is_schema_question(question):
-            with st.spinner("Looking up schema information..."):
+            with st.spinner("Looking up schema and generating answer..."):
                 try:
-                    context = metadata.get_context(question, ignore_whitelist=True)
+                    # Step 1: catalog keyword search → small pre-filtered context (max 12 tables)
+                    context = metadata.get_schema_context(question, max_tables=12)
+                    # Step 2: LLM explains the results in plain English using correct system message
                     schema_result = llm_client.answer_schema_question(context.to_prompt_context())
                 except LlmApiError as llm_error:
                     st.session_state.running = False
@@ -161,11 +207,11 @@ def main() -> None:
             st.subheader("Token Usage")
             col1, col2, col3 = st.columns(3)
             col1.metric("Prompt Tokens", schema_result.prompt_tokens,
-                        help="Tokens sent TO the model")
+                        help="Tokens sent to the model (pre-filtered to max 8 tables — much less than before)")
             col2.metric("Completion Tokens", schema_result.completion_tokens,
-                        help="Tokens returned BY the model")
+                        help="Tokens returned by the model")
             col3.metric("Total Tokens", schema_result.total_tokens,
-                        help="prompt_tokens + completion_tokens — this is what you are billed for")
+                        help="prompt_tokens + completion_tokens — billed amount")
 
         else:
             with st.spinner("Generating SQL and querying Hologres..."):

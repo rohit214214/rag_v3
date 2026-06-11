@@ -1,31 +1,51 @@
 {
   "default_sales_table": "ads.ads_ckg_sales_di",
   "default_stock_table": "ads.ads_ckg_stock_di",
+  "default_traffic_table": "ads.ads_ckg_traffic_di",
   "table_columns": {
     "ads.ads_ckg_sales_di": {
       "country": "country",
       "date": "sales_dt",
+      "store_name": "store_name",
+      "article": "article",
+      "brand": "brand",
       "sales_amount": "total_net_price_sgd",
+      "gross_amount": "total_gross_price_sgd",
       "quantity": "sales_qty"
     },
-    "ads.ads_ckg_stock_di": {
+    "ads.ads_ckg_stock_wi": {
       "country": "country",
       "date": "soh_dt",
       "stock_quantity": "soh",
       "article": "article"
+    },
+    "ads.ads_ckg_traffic_di": {
+      "country": "country",
+      "date": "traffic_ts",
+      "traffic_count": "incoming",
+      "store_name": "store_name"
     }
   },
   "glossary": {
     "sales": "total_net_price_sgd",
     "revenue": "total_net_price_sgd",
+    "gross price": "total_gross_price_sgd",
+    "gross sales": "total_gross_price_sgd",
+    "gross amount": "total_gross_price_sgd",
     "sold quantity": "sales_qty",
     "quantity": "sales_qty",
     "country": "country",
     "date": "sales_dt",
     "stock": "soh",
+    "stock on hand": "soh",
     "inventory": "soh",
     "stock quantity": "soh",
-    "article": "article"
+    "article": "article",
+    "article number": "article",
+    "no of traffic count": "incoming",
+    "traffic count": "incoming",
+    "store name": "store_name",
+    "traffic": "incoming"
   },
   "rules": [
     "All sales and revenue questions MUST query ads.ads_ckg_sales_di only.",

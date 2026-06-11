@@ -1,0 +1,5 @@
+[client]
+# "viewer" hides the Deploy button while keeping the running indicator
+# and the page settings (hamburger) menu visible
+toolbarMode = "viewer"
+showSidebarNavigation = true

@@ -47,9 +47,14 @@ class SqlGuard:
         if not whitelist:
             return
         lower_sql = sql.lower()
+        # Extract CTE alias names e.g. "WITH date_params AS (...)" -> {"date_params"}
+        # These are not real tables and must be excluded from the whitelist check.
+        cte_names = set(re.findall(r"\b(\w+)\s+as\s*\(", lower_sql))
         referenced = re.findall(r"\b(?:from|join)\s+([a-zA-Z0-9_\.]+)", lower_sql)
         allowed = {item.lower() for item in whitelist}
         for table in referenced:
+            if table in cte_names:
+                continue  # CTE alias, not a real table — skip
             if table not in allowed and table.split(".")[-1] not in allowed:
                 allowed_list = ", ".join(settings.whitelist_tables)
                 raise SqlGuardError(

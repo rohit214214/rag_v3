@@ -8,6 +8,21 @@ import pandas as pd
 from config.settings import settings
 from services.hologres_client import HologresClient
 
+# Common English words removed from schema search keywords so only domain
+# terms (e.g. "customer", "nationality") drive table matching.
+_SCHEMA_STOP_WORDS = frozenset({
+    "are", "can", "the", "any", "for", "and", "get", "how",
+    "where", "what", "show", "give", "tell", "find", "have", "from",
+    "with", "this", "that", "there", "which", "about", "into",
+    "also", "some", "all", "not", "but", "was", "has", "did",
+    "use", "per", "who", "will", "does", "more", "most", "much",
+    "when", "here", "then", "please", "could", "would", "should",
+    "data", "table", "tables", "column", "columns", "list",
+    "just", "only", "want", "need", "like", "know", "you", "your",
+    "our", "its", "his", "her", "they", "them", "than", "now",
+    "very", "still", "look", "make", "take", "see", "info",
+})
+
 
 @dataclass
 class MetadataContext:
@@ -210,3 +225,63 @@ class MetadataRetriever:
                     for k, v in list(grouped.items())[:max_tables]
                 ]
         return MetadataContext(user_question=question, tables=selected, business_rules=rules)
+
+    def get_schema_context(self, question: str, max_tables: int = 8) -> MetadataContext:
+        """Schema discovery: find the most relevant tables for a catalog question.
+        - Removes stop words so only domain keywords drive matching.
+        - Scores tables: table-name match (+3) ranks higher than column match (+1).
+        - Returns top max_tables by score — no LLM involved.
+        """
+        rules = self._load_rules()
+        catalog = self._fetch_schema_catalog()
+
+        # Extract meaningful keywords (strip punctuation, remove stop words)
+        raw = question.lower()
+        for ch in (",", "?", "!", ".", "(", ")", "'", "\""):
+            raw = raw.replace(ch, " ")
+        keywords = {
+            t for t in raw.split()
+            if len(t) > 2 and t not in _SCHEMA_STOP_WORDS
+        }
+        # Also include glossary terms
+        for key in rules.get("glossary", {}).keys():
+            for part in key.lower().split():
+                if len(part) > 2 and part not in _SCHEMA_STOP_WORDS:
+                    keywords.add(part)
+
+        if not keywords:
+            return MetadataContext(user_question=question, tables=[], business_rules=rules)
+
+        # Group catalog rows by (schema, table)
+        grouped: dict[tuple[str, str], list[dict[str, str]]] = {}
+        for _, row in catalog.iterrows():
+            key = (row["table_schema"], row["table_name"])
+            grouped.setdefault(key, []).append(
+                {"column_name": row["column_name"], "data_type": row["data_type"]}
+            )
+
+        # Score each table
+        scored: list[tuple[int, dict[str, Any]]] = []
+        for (schema_name, table_name), columns in grouped.items():
+            col_names = [c["column_name"].lower() for c in columns]
+            score = 0
+            for kw in keywords:
+                if kw in table_name.lower():
+                    score += 3          # keyword in table name = highly relevant
+                for cn in col_names:
+                    if kw in cn:
+                        score += 1      # keyword in a column name
+                        break           # count each keyword once per table
+            if score > 0:
+                scored.append((score, {
+                    "table_schema": schema_name,
+                    "table_name": table_name,
+                    "columns": columns,
+                }))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return MetadataContext(
+            user_question=question,
+            tables=[t for _, t in scored[:max_tables]],
+            business_rules=rules,
+        )

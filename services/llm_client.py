@@ -150,7 +150,7 @@ class LlmClient:
         cleaned = re.sub(r"\s*```$", "", cleaned)
         return cleaned.strip()
 
-    def _call_model(self, endpoint: str, api_key: str, model: str, prompt: str) -> tuple[str, dict[str, Any], int]:
+    def _call_model(self, endpoint: str, api_key: str, model: str, prompt: str, system_message: str = "You generate SQL only.") -> tuple[str, dict[str, Any], int]:
         if not api_key.strip():
             raise LlmApiError(
                 "API key is empty. Set QWEN_API_KEY or DASHSCOPE_API_KEY in cf.env.",
@@ -165,13 +165,13 @@ class LlmClient:
         payload = {
             "model": model,
             "messages": [
-                {"role": "system", "content": "You generate SQL only."},
+                {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.0,
         }
         start = time.time()
-        response = self.session.post(endpoint, headers=headers, json=payload, timeout=90)
+        response = self.session.post(endpoint, headers=headers, json=payload, timeout=120)
         elapsed_ms = int((time.time() - start) * 1000)
 
         if not response.ok:
@@ -251,7 +251,15 @@ class LlmClient:
         not SQL."""
         prompt = SCHEMA_PROMPT_TEMPLATE.format(context=context_text)
         answer_text, body, latency = self._call_model(
-            settings.qwen_endpoint, settings.qwen_api_key, settings.qwen_model, prompt
+            settings.qwen_endpoint,
+            settings.qwen_api_key,
+            settings.qwen_model,
+            prompt,
+            system_message=(
+                "You are a data catalog assistant for a Hologres data warehouse. "
+                "Answer questions about available tables and columns in clear plain English. "
+                "Never generate SQL. Always list the full table name including schema prefix."
+            ),
         )
         pt, ct, tt = _extract_token_usage(body)
         return SchemaAnswer(
