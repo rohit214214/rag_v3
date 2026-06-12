@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    container_name: hologres-rag
+    ports:
+      - "8501:8501"
+    env_file:
+      - cf.env
+    restart: always
+    mem_limit: 1g
+    cpus: '1.5'
