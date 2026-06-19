@@ -1,6 +1,6 @@
 {
   "default_sales_table": "ads.ads_ckg_sales_di",
-  "default_stock_table": "ads.ads_ckg_stock_di",
+  "default_stock_table": "ads.ads_ckg_stock_wi",
   "default_traffic_table": "ads.ads_ckg_traffic_di",
   "table_columns": {
     "ads.ads_ckg_sales_di": {
@@ -11,7 +11,8 @@
       "brand": "brand",
       "sales_amount": "total_net_price_sgd",
       "gross_amount": "total_gross_price_sgd",
-      "quantity": "sales_qty"
+      "quantity": "sales_qty",
+      "store_category": "store_category"
     },
     "ads.ads_ckg_stock_wi": {
       "country": "country",
@@ -24,6 +25,94 @@
       "date": "traffic_ts",
       "traffic_count": "incoming",
       "store_name": "store_name"
+    },
+    "ads.ads_ckg_ecom_salesfact": {
+      "country": "country",
+      "date": "sales_dt",
+      "article": "article",
+      "quantity": "sales_qty",
+      "sales_amount": "total_net_price_sgd"
+    },
+    "ads.ads_ckc_retail_business_sales_di": {
+      "country": "country",
+      "date": "sales_dt",
+      "article": "article",
+      "quantity": "sales_qty",
+      "sales_amount": "total_net_price_sgd"
+    },
+    "ads.ads_ckc_online_business_sales_di": {
+      "country": "country",
+      "date": "sales_dt",
+      "article": "article",
+      "quantity": "sales_qty",
+      "sales_amount": "total_net_price_sgd"
+    },
+    "ads.ads_ecom_sf2_sales_hi": {
+      "country": "country",
+      "date": "sales_dt",
+      "article": "article",
+      "quantity": "sales_qty",
+      "sales_amount": "total_net_price_sgd"
+    },
+    "ads.ads_ckc_stock_wi": {
+      "country": "country",
+      "date": "soh_dt",
+      "stock_quantity": "soh",
+      "article": "article"
+    },
+    "ads.ads_ckc_ecom_stock_di": {
+      "country": "country",
+      "date": "soh_dt",
+      "stock_quantity": "soh",
+      "article": "article"
+    },
+    "ads.ads_ckg_stock_type_wi": {
+      "country": "country",
+      "article": "article",
+      "year": "year",
+      "week": "week"
+    },
+    "ads.ads_ckg_sku_stock_type_di": {
+      "country": "country",
+      "article": "article",
+      "colour": "colour",
+      "year": "year",
+      "week": "week"
+    },
+    "dim.item_master": {
+      "article": "article",
+      "article_description": "article_description",
+      "brand": "brand",
+      "category": "category"
+    },
+    "dim.shop_master": {
+      "shop_no": "shop_no",
+      "store_name": "store_name",
+      "country": "country",
+      "store_category": "store_category"
+    },
+    "ads.ads_ckc_traffic_di": {
+      "country": "country",
+      "date": "traffic_ts",
+      "traffic_count": "incoming",
+      "store_name": "store_name"
+    },
+    "ads.ads_ckc_ecom_traffic_di": {
+      "country": "country",
+      "date": "traffic_ts",
+      "traffic_count": "incoming"
+    },
+    "ads.ads_ga4_bi_traffic_by_device": {
+      "country": "country",
+      "date": "traffic_dt",
+      "device": "device",
+      "traffic_count": "sessions"
+    },
+    "ads.business_ckg_sell_through_v1_di": {
+      "country": "country",
+      "date": "dt",
+      "article": "article",
+      "sell_through_rate": "sell_through_rate"
     }
   },
   "glossary": {
@@ -38,6 +127,7 @@
     "date": "sales_dt",
     "stock": "soh",
     "stock on hand": "soh",
+    "soh": "soh",
     "inventory": "soh",
     "stock quantity": "soh",
     "article": "article",
@@ -45,18 +135,45 @@
     "no of traffic count": "incoming",
     "traffic count": "incoming",
     "store name": "store_name",
-    "traffic": "incoming"
+    "traffic": "incoming",
+    "sell through": "sell_through_rate",
+    "sell-through": "sell_through_rate",
+    "ecom": "ecommerce",
+    "online": "ecommerce",
+    "sf2": "salesforce2",
+    "china": "CHINA"
   },
   "rules": [
-    "All sales and revenue questions MUST query ads.ads_ckg_sales_di only.",
-    "Do NOT use ads.reporting_ckg_sales_df or any other sales table.",
-    "On ads.ads_ckg_sales_di use column country, sales_dt for dates, sales_qty for quantity.",
-    "All stock and inventory questions MUST query ads.ads_ckg_stock_di only.",
-    "On ads.ads_ckg_stock_di use column country, stock_dt for dates, stock_qty for quantity, sku_code for SKU.",
-    "Dimension text values (country, brand, etc.) are stored in UPPERCASE in the database.",
+    "--- SALES TABLE ROUTING ---",
+    "For general retail sales (non-China, non-ecom) use ads.ads_ckg_sales_di.",
+    "For ecommerce / online sales (non-China) use ads.ads_ckg_ecom_salesfact.",
+    "For China retail / offline sales use ads.ads_ckc_retail_business_sales_di.",
+    "For China online / ecommerce sales use ads.ads_ckc_online_business_sales_di.",
+    "For SF2 (Salesforce2) sales use ads.ads_ecom_sf2_sales_hi.",
+    "--- STOCK TABLE ROUTING ---",
+    "For stock / SOH / inventory (non-China, non-ecom) use ads.ads_ckg_stock_wi.",
+    "For China retail stock / SOH use ads.ads_ckc_stock_wi.",
+    "For China ecommerce stock / SOH use ads.ads_ckc_ecom_stock_di.",
+    "For stock type analysis at country+article level use ads.ads_ckg_stock_type_wi; join to sales/stock tables on country, year, week, article.",
+    "For stock type analysis at country+article+colour level use ads.ads_ckg_sku_stock_type_di; join to sales/stock tables on country, year, week, article, colour.",
+    "--- STOCK DATE ROUNDING (non-China) ---",
+    "Stock data in ads.ads_ckg_stock_wi is captured weekly on Saturday. When filtering by soh_dt, use >= (not =) with the nearest Saturday date, because different countries report SOH on Saturday, Sunday, or Monday. Use: soh_dt >=  (requested_date::date - ((EXTRACT(DOW FROM requested_date::date)::int + 1) % 7) * INTERVAL '1 day')::date. Example: 2026-05-28 (Thursday) \u2192 2026-05-23 (Saturday). Saturday stays the same, Sunday goes back 1 day, Monday goes back 2 days, etc. Apply this rounding to ALL non-China stock queries regardless of which day of week the user specifies.",
+    "--- TRAFFIC TABLE ROUTING ---",
+    "For retail traffic (non-China) use ads.ads_ckg_traffic_di.",
+    "For China retail traffic use ads.ads_ckc_traffic_di.",
+    "For China ecommerce traffic use ads.ads_ckc_ecom_traffic_di.",
+    "For SF2 / digital traffic use ads.ads_ga4_bi_traffic_by_device.",
+    "--- DIMENSION TABLES ---",
+    "For article / item / product information (description, brand, category) use dim.item_master.",
+    "For shop / store details (shop number, store name, country, store category) use dim.shop_master.",
+    "--- OTHER ---",
+    "For sell-through rate data use ads.business_ckg_sell_through_v1_di.",
+    "--- GENERAL RULES ---",
+    "Dimension text values (country, brand, store_category etc.) are stored UPPERCASE in the database.",
     "For sold quantity / units use SUM(sales_qty).",
-    "For stock / inventory quantity use SUM(stock_qty).",
-    "Use sales_dt = 'YYYY-MM-DD' for a single day filter.",
-    "Use stock_dt = 'YYYY-MM-DD' for a single day stock filter."
+    "For stock / inventory quantity use SUM(soh).",
+    "Use sales_dt = 'YYYY-MM-DD' for single day filter.",
+    "Use soh_dt >= rounded_saturday_date (never soh_dt =) for stock filters \u2014 different countries report on Sat/Sun/Mon so >= captures all reporters in that week.",
+    "Always use explicit schema prefix in table references e.g. ads.ads_ckg_sales_di not just ads_ckg_sales_di."
   ]
 }

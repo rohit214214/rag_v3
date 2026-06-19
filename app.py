@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta
 
+import pandas as pd
 import streamlit as st
 
 from config.settings import settings
@@ -26,6 +27,17 @@ def _nl_summary(question: str, row_count: int) -> str:
         return f"No data found for: {question}"
     return f"Returned {row_count} rows for: {question}"
 
+
+
+def _format_df(df: pd.DataFrame):
+    """Return a Styler with comma-separated number formatting for easy reading."""
+    styler = df.style
+    for col in df.select_dtypes(include="number").columns:
+        if pd.api.types.is_float_dtype(df[col]):
+            styler = styler.format({col: "{:,.2f}"})
+        else:
+            styler = styler.format({col: "{:,}"})
+    return styler
 
 # Keywords that indicate the user is asking about the schema/catalog,
 # not requesting actual data. Used by _is_schema_question().
@@ -204,14 +216,11 @@ def main() -> None:
             st.success("Schema lookup completed.")
             st.info(schema_result.answer)
 
-            st.subheader("Token Usage")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Prompt Tokens", schema_result.prompt_tokens,
-                        help="Tokens sent to the model (pre-filtered to max 8 tables — much less than before)")
-            col2.metric("Completion Tokens", schema_result.completion_tokens,
-                        help="Tokens returned by the model")
-            col3.metric("Total Tokens", schema_result.total_tokens,
-                        help="prompt_tokens + completion_tokens — billed amount")
+            st.caption(
+                f"🪙 Tokens — Prompt: **{schema_result.prompt_tokens:,}** | "
+                f"Completion: **{schema_result.completion_tokens:,}** | "
+                f"Total: **{schema_result.total_tokens:,}**"
+            )
 
         else:
             with st.spinner("Generating SQL and querying Hologres..."):
@@ -275,16 +284,13 @@ def main() -> None:
                     language="json",
                 )
 
-            st.subheader("Token Usage")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Prompt Tokens", llm_result.prompt_tokens,
-                        help="Tokens sent TO the model (your question + schema context + system prompt)")
-            col2.metric("Completion Tokens", llm_result.completion_tokens,
-                        help="Tokens returned BY the model (the generated SQL)")
-            col3.metric("Total Tokens", llm_result.total_tokens,
-                        help="prompt_tokens + completion_tokens — this is what you are billed for")
+            st.caption(
+                f"🪙 Tokens — Prompt: **{llm_result.prompt_tokens:,}** | "
+                f"Completion: **{llm_result.completion_tokens:,}** | "
+                f"Total: **{llm_result.total_tokens:,}**"
+            )
 
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(_format_df(df), use_container_width=True)
             if len(df) >= settings.app_max_rows:
                 st.warning(
                     f"Result reached cap ({settings.app_max_rows} rows). Export includes capped rows only."

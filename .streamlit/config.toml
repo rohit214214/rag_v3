@@ -1,5 +1,4 @@
 [client]
-# "viewer" hides the Deploy button while keeping the running indicator
-# and the page settings (hamburger) menu visible
-toolbarMode = "viewer"
+# toolbarMode removed — CSS in app.py hides Deploy button specifically.
+# This restores the running indicator in the top-right corner.
 showSidebarNavigation = true
